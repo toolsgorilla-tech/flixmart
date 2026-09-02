@@ -4,7 +4,7 @@ import { Check, Copy, MessageCircle, WalletCards } from "lucide-react";
 import { PAYMENT_METHODS } from "@/lib/utils";
 
 export default function CheckoutForm({ productName, planLabel, amount, whatsapp, paymentAccount }: { productName: string; planLabel: string; amount: number; whatsapp: string; paymentAccount: string }) {
-  const [method, setMethod] = useState(PAYMENT_METHODS[0].id);
+ const [method, setMethod] = useState<string>(PAYMENT_METHODS[0].id);
   const [copied, setCopied] = useState(false);
   const selected = useMemo(() => PAYMENT_METHODS.find((m) => m.id === method) ?? PAYMENT_METHODS[0], [method]);
   const copy = async () => { await navigator.clipboard?.writeText(paymentAccount); setCopied(true); setTimeout(() => setCopied(false), 1800); };

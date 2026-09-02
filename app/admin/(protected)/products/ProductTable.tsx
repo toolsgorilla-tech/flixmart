@@ -113,7 +113,7 @@ export default function ProductTable({ initialProducts }: { initialProducts: Pro
                 <td className="px-4 py-3">
                   <Badge tone={p.status === "published" ? "success" : "warning"}>{p.status}</Badge>
                 </td>
-                <td className="px-4 py-3 text-slate-300">{lowestPrice(p) != null ? `Rs ${lowestPrice(p).toLocaleString("en-PK")}` : "—"}</td>
+                <td className="px-4 py-3 text-slate-300">{(() => { const price = lowestPrice(p); return price != null ? `Rs ${price.toLocaleString("en-PK")}` : "—"; })()}</td>
                 <td className="px-4 py-3">
                   <div className="flex gap-1.5">
                     {p.is_featured && (
