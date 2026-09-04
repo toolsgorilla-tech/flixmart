@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/is-configured";
 import { products as staticProducts } from "@/lib/data";
 import { mapProductRow } from "./mappers";
+import { sortProductsForIptvOrder, sortAdminProductRowsForIptvOrder } from "@/lib/iptvOrder";
 import type { Product } from "@/lib/types";
 import type { ProductRow, ProductWithPlans, ContentStatus, ProductBadge } from "@/types/database";
 
@@ -16,7 +17,7 @@ const PRODUCT_SELECT = "*, product_plans(*), categories(*)";
  * request tree without double-querying.
  */
 export const getPublishedProducts = cache(async (): Promise<Product[]> => {
-  if (!isSupabaseConfigured()) return staticProducts;
+  if (!isSupabaseConfigured()) return sortProductsForIptvOrder(staticProducts);
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -25,8 +26,11 @@ export const getPublishedProducts = cache(async (): Promise<Product[]> => {
     .eq("status", "published")
     .order("created_at", { ascending: false });
 
-  if (error || !data || data.length === 0) return staticProducts;
-  return (data as unknown as ProductWithPlans[]).map((row) => mapProductRow(row));
+  if (error || !data || data.length === 0) return sortProductsForIptvOrder(staticProducts);
+  const mapped = (data as unknown as ProductWithPlans[]).map((row) => mapProductRow(row));
+  // IPTV products must always render Starter → Standard → Premium → Ultimate
+  // regardless of creation order — see lib/iptvOrder.ts.
+  return sortProductsForIptvOrder(mapped);
 });
 
 export const getPublishedProductBySlug = cache(async (slug: string): Promise<Product | null> => {
@@ -53,7 +57,9 @@ export const getPublishedProductBySlug = cache(async (slug: string): Promise<Pro
  */
 export async function getRelatedProducts(categorySlug: string, excludeSlug: string, limit = 4): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
-    return staticProducts.filter((p) => p.category === categorySlug && p.slug !== excludeSlug).slice(0, limit);
+    return sortProductsForIptvOrder(
+      staticProducts.filter((p) => p.category === categorySlug && p.slug !== excludeSlug).slice(0, limit)
+    );
   }
 
   const supabase = await createClient();
@@ -70,7 +76,8 @@ export async function getRelatedProducts(categorySlug: string, excludeSlug: stri
     .limit(limit);
 
   if (error || !data) return [];
-  return (data as unknown as ProductWithPlans[]).map((row) => mapProductRow(row));
+  const mapped = (data as unknown as ProductWithPlans[]).map((row) => mapProductRow(row));
+  return sortProductsForIptvOrder(mapped);
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +88,9 @@ export async function getAllProductsAdmin(): Promise<ProductWithPlans[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.from("products").select(PRODUCT_SELECT).order("created_at", { ascending: false });
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as ProductWithPlans[];
+  // IPTV products must always list Starter → Standard → Premium → Ultimate
+  // in the admin table too, regardless of creation/edit order.
+  return sortAdminProductRowsForIptvOrder((data ?? []) as unknown as ProductWithPlans[]);
 }
 
 export async function getProductByIdAdmin(id: string): Promise<ProductWithPlans | null> {

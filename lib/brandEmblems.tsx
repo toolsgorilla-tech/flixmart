@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Tv, Film, Bot, Sparkles, ShieldCheck, Lock, Code2, Terminal, Video, Hash, Briefcase, Mic2, Palette, PenTool, BarChart3, Globe2 } from "lucide-react";
+import { Tv, Film, Bot, Sparkles, ShieldCheck, Lock, Code2, Terminal, Video, Hash, Briefcase, Mic2, Palette, PenTool, BarChart3, Globe2, Star } from "lucide-react";
 
 /**
  * Product-specific brand marks used by the storefront cards.
@@ -80,6 +80,10 @@ export const brandEmblems: Record<string, BrandEmblemConfig> = {
   "peacock-tv": mark("peacock", "bg-slate-950 text-white border border-white/10", "text-sm font-black"),
   tapmad: mark("tapmad", "bg-[#f59e0b] text-black", "text-sm font-black"),
   crunchyroll: mark("CR", "bg-[#f47521] text-white", "text-xl font-black"),
+  disney: mark("D+", "bg-gradient-to-br from-[#0b1440] to-[#1f3fb8] text-white border border-white/10", "text-2xl font-black"),
+  hotstar: icon(<Star size={28} fill="currentColor" />, "bg-[#0f1621] text-[#1cd8a6] border border-white/10"),
+  "hbo-max": mark("MAX", "bg-gradient-to-br from-[#1a0033] to-[#5b21b6] text-white", "text-sm font-black"),
+  chaupal: mark("C", "bg-[#e2531d] text-white", "text-3xl font-black"),
 
   // Academic / writing
   quetext: mark("Q", "bg-blue-700 text-white", "text-3xl font-black"),
@@ -125,10 +129,44 @@ export const defaultFallback: BrandEmblemConfig = {
   className: "bg-slate-800 text-white border border-white/10",
 };
 
-export function getBrandEmblem(brandKey?: string): BrandEmblemConfig {
-  if (!brandKey) return defaultFallback;
-  if (brandKey.includes("iptv")) return brandEmblems[brandKey] || iptvFallback;
-  if (brandEmblems[brandKey]) return brandEmblems[brandKey];
-  const initials = brandKey.split("-").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
+// IPTV tiers, cheapest/base first. Used to resolve a tier-specific emblem
+// (e.g. "iptv-premium") even when a product's brand_key doesn't exactly
+// match one of the keys above — falling back to the product name instead.
+const IPTV_TIERS = ["starter", "standard", "premium", "ultimate"];
+
+// Safety-net keyword → brand key mapping for a handful of entertainment
+// products whose brand_key may not always be set exactly right in the CMS.
+// Only used when there is no direct brandEmblems[key] match.
+const ENTERTAINMENT_NAME_HINTS: [string, string][] = [
+  ["hotstar", "hotstar"],
+  ["disney", "disney"],
+  ["hbo", "hbo-max"],
+  ["chaupal", "chaupal"],
+];
+
+/**
+ * @param brandKey Product's `brand_key` from the database, if set.
+ * @param productName Product name — used as a fallback signal when
+ *   `brandKey` is missing or doesn't exactly match a known key (e.g. an
+ *   IPTV product whose brand_key wasn't set to an exact tier key).
+ */
+export function getBrandEmblem(brandKey?: string, productName?: string): BrandEmblemConfig {
+  const normalizedKey = brandKey?.trim().toLowerCase();
+  if (normalizedKey && brandEmblems[normalizedKey]) return brandEmblems[normalizedKey];
+
+  const nameLower = (productName ?? "").toLowerCase();
+  const looksLikeIptv = Boolean(normalizedKey?.includes("iptv")) || nameLower.includes("iptv");
+
+  if (looksLikeIptv) {
+    const tier = IPTV_TIERS.find((t) => normalizedKey?.includes(t) || nameLower.includes(t));
+    if (tier && brandEmblems[`iptv-${tier}`]) return brandEmblems[`iptv-${tier}`];
+    return iptvFallback;
+  }
+
+  const hint = ENTERTAINMENT_NAME_HINTS.find(([keyword]) => nameLower.includes(keyword));
+  if (hint && brandEmblems[hint[1]]) return brandEmblems[hint[1]];
+
+  if (!normalizedKey) return defaultFallback;
+  const initials = normalizedKey.split("-").filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? "").join("");
   return mark(initials || "FM", "bg-slate-800 text-white border border-white/10", "text-lg font-black");
 }

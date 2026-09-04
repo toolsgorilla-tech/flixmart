@@ -23,7 +23,7 @@ interface CategoryLookup {
  */
 export default function ProductCard({ product, categories }: { product: Product; categories?: CategoryLookup[] }) {
   const firstPlan = product.plans[0] || { price: 0, label: "1 Month" };
-  const emblem = getBrandEmblem(product.brandKey);
+  const emblem = getBrandEmblem(product.brandKey, product.name);
   const category = (categories && categories.length > 0 ? categories : staticCategories).find(
     (c) => c.slug === product.category
   );
